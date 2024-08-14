@@ -70,59 +70,83 @@ function getUsersNoPassword($conn,$path){
     echo json_encode($result ?? []);
 }
 
-// // Saving new user
-// function checkUserDetails($conn,$data) {
-//     $firstname = $data['firstname'] ?? null;
-//     $lastname = $data['lastname'] ?? null;
-//     $email = $data['email'] ?? null;
-//     $phone = $data['phone'] ?? null;
-//     $address = $data['address'] ?? null;
-//     $password = $data['password'] ?? null;
-//     $city = $data['city'] ?? null;
-    
-//     if (!$firstname || !$lastname || !$email || !$phone || !$address || !$password || !$city) {
-//         $response = ['status' => 0, 'message' => 'Missing Fields.!'];
-//         echo json_encode($response);
-//     }
+function checkUserEmail($conn, $email) {
+    try {
+        $sql = "SELECT * FROM users WHERE LOWER(email) = LOWER(?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([$email]);
+        $oldEmail = $stmt->fetch(PDO::FETCH_ASSOC);
 
-//     checkUserEmail($conn,$email);
-
-// }
-// function checkUserEmail($conn,$email){
-//     $sql ="SELECT * FROM customers WHERE LOWER(email) = LOWER(?)";
-//     $stmt = $conn->prepare($sql);
-//     $stmt->execute([$email]);
-//     $oldEmail = $stmt->fetch(PDO::FETCH_ASSOC);
-
-//     if ($oldEmail) {
-//         $response = ['status' => 0, 'message' => 'The chosen email is already in use.'];
-//         echo json_encode($response);
-//         exit();
-//     }
-// }
+        if ($oldEmail) {
+            $response = ['status' => 0, 'message' => 'The chosen email is already in use.'];
+            echo json_encode($response);
+            // Bad Request
+            exit();
+        }
+    } catch (PDOException $e) {
+        $response = ['status' => 0, 'message' => 'Database error: ' . $e->getMessage()];
+        echo json_encode($response);
+        exit();
+    }
+}
 function saveUser($conn) {
     $user = json_decode(file_get_contents('php://input'), true);
-
-    $sql = "INSERT INTO users (id, first_name, last_name, email, phone, address, city,password)
-            VALUES (NULL, :firstname, :lastname, :email, :phone, :address, :city, :password)";
-    $stmt = $conn->prepare($sql);
-    $hashedPassword = password_hash($user['password'], PASSWORD_BCRYPT);
-
-    $stmt->bindParam(':firstname', $user['firstname']);
-    $stmt->bindParam(':lastname', $user['lastname']);
-    $stmt->bindParam(':email', $user['email']);
-    $stmt->bindParam(':phone', $user['phone']);
-    $stmt->bindParam(':address', $user['address']);
-    $stmt->bindParam(':city', $user['city']);
-    $stmt->bindParam(':password', $hashedPassword);
-
-    if ($stmt->execute()) {
-        $response = ['status' => 1, 'message' => 'User created successfully.'];
-    } else {
-        $response = ['status' => 0, 'message' => 'Failed create user.'];
+    
+    try {
+        checkUserEmail($conn, $user['email']);
+    
+        $sql = "INSERT INTO users (first_name, last_name, email, phone, address, city, password)
+                VALUES (:firstname, :lastname, :email, :phone, :address, :city, :password)";
+    
+        $stmt = $conn->prepare($sql);
+        $hashedPassword = password_hash($user['password'], PASSWORD_BCRYPT);
+    
+        $stmt->bindParam(':firstname', $user['firstname']);
+        $stmt->bindParam(':lastname', $user['lastname']);
+        $stmt->bindParam(':email', $user['email']);
+        $stmt->bindParam(':phone', $user['phone']);
+        $stmt->bindParam(':address', $user['address']);
+        $stmt->bindParam(':city', $user['city']);
+        $stmt->bindParam(':password', $hashedPassword);
+    
+        if ($stmt->execute()) {
+            $response = ['status' => 1, 'message' => 'User created successfully.'];
+        } else {
+            $response = ['status' => 0, 'message' => 'Failed to create user.'];
+          
+        }
+    } catch (PDOException $e) {
+        $response = ['status' => 0, 'message' => 'Database error: ' . $e->getMessage()];
+        echo json_encode($response);
     }
+    
     echo json_encode($response);
 }
+
+
+// function saveUser($conn) {
+//     $user = json_decode(file_get_contents('php://input'), true);
+
+//     $sql = "INSERT INTO users (id, first_name, last_name, email, phone, address, city,password)
+//             VALUES (NULL, :firstname, :lastname, :email, :phone, :address, :city, :password)";
+//     $stmt = $conn->prepare($sql);
+//     $hashedPassword = password_hash($user['password'], PASSWORD_BCRYPT);
+
+//     $stmt->bindParam(':firstname', $user['firstname']);
+//     $stmt->bindParam(':lastname', $user['lastname']);
+//     $stmt->bindParam(':email', $user['email']);
+//     $stmt->bindParam(':phone', $user['phone']);
+//     $stmt->bindParam(':address', $user['address']);
+//     $stmt->bindParam(':city', $user['city']);
+//     $stmt->bindParam(':password', $hashedPassword);
+
+//     if ($stmt->execute()) {
+//         $response = ['status' => 1, 'message' => 'User created successfully.'];
+//     } else {
+//         $response = ['status' => 0, 'message' => 'Failed create user.'];
+//     }
+//     echo json_encode($response);
+// }
 
 
 // Function to handle PUT requests
