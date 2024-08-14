@@ -18,8 +18,16 @@ switch($method) {
         break;
     
     case "GET":
-        getUsers($conn, $path);
-        break;
+        // if(isset($path['5'])){
+        //     getUsersNoPassword($conn, $path);
+        //     break;
+        // }
+        // else{
+            getUsers($conn, $path);
+            break;
+
+        // }
+       
 
     case "PUT":
         editUser($conn,$path);
@@ -43,6 +51,7 @@ function getUsers($conn, $path) {
         $stmt = $conn->prepare($sql);
         $stmt->execute([$path[3]]);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
     } else {
         $stmt = $conn->prepare($sql);
         $stmt->execute();
@@ -51,42 +60,48 @@ function getUsers($conn, $path) {
     
     echo json_encode($result);
 }
+function getUsersNoPassword($conn,$path){
+    if (isset($path[3]) && is_numeric($path[3]) && isset($path[4])) {
+        $sql = "SELECT id, first_name, last_name, email, phone, city, address FROM users WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([$path[3]]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    echo json_encode($result ?? []);
+}
 
-// Saving new user
-function checkUserDetails($conn,$data) {
-    $firstname = $data['first_name'] ?? null;
-    $lastname = $data['last_name'] ?? null;
-    $email = $data['email'] ?? null;
-    $phone = $data['phone'] ?? null;
-    $address = $data['address'] ?? null;
-    $password = $data['password'] ?? null;
-    $city = $data['city'] ?? null;
+// // Saving new user
+// function checkUserDetails($conn,$data) {
+//     $firstname = $data['firstname'] ?? null;
+//     $lastname = $data['lastname'] ?? null;
+//     $email = $data['email'] ?? null;
+//     $phone = $data['phone'] ?? null;
+//     $address = $data['address'] ?? null;
+//     $password = $data['password'] ?? null;
+//     $city = $data['city'] ?? null;
     
-    if (!$firstname || !$lastname || !$email || !$phone || !$address || !$password || !$city) {
-        $response = ['status' => 0, 'message' => 'Missing Fields.!'];
-        echo json_encode($response);
-        exit();
-    }
+//     if (!$firstname || !$lastname || !$email || !$phone || !$address || !$password || !$city) {
+//         $response = ['status' => 0, 'message' => 'Missing Fields.!'];
+//         echo json_encode($response);
+//     }
 
-    checkUserEmail($conn,$email);
+//     checkUserEmail($conn,$email);
 
-}
-function checkUserEmail($conn,$email){
-    $sql ="SELECT * FROM customers WHERE LOWER(email) = LOWER(?)";
-    $stmt = $conn->prepare($sql);
-    $stmt->execute([$email]);
-    $oldEmail = $stmt->fetch(PDO::FETCH_ASSOC);
+// }
+// function checkUserEmail($conn,$email){
+//     $sql ="SELECT * FROM customers WHERE LOWER(email) = LOWER(?)";
+//     $stmt = $conn->prepare($sql);
+//     $stmt->execute([$email]);
+//     $oldEmail = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($oldEmail) {
-        $response = ['status' => 0, 'message' => 'The chosen email is already in use.'];
-        echo json_encode($response);
-        exit();
-    }
-}
+//     if ($oldEmail) {
+//         $response = ['status' => 0, 'message' => 'The chosen email is already in use.'];
+//         echo json_encode($response);
+//         exit();
+//     }
+// }
 function saveUser($conn) {
     $user = json_decode(file_get_contents('php://input'), true);
-    checkUserDetails($conn,$user);
-
 
     $sql = "INSERT INTO users (id, first_name, last_name, email, phone, address, city,password)
             VALUES (NULL, :firstname, :lastname, :email, :phone, :address, :city, :password)";
@@ -101,8 +116,6 @@ function saveUser($conn) {
     $stmt->bindParam(':city', $user['city']);
     $stmt->bindParam(':password', $hashedPassword);
 
-    
-
     if ($stmt->execute()) {
         $response = ['status' => 1, 'message' => 'User created successfully.'];
     } else {
@@ -116,8 +129,6 @@ function saveUser($conn) {
 function editUser($conn,$path) {
     
     $user = json_decode(file_get_contents('php://input'), true);
-
-    checkUserDetails($conn,$user);
     $hashedPassword = password_hash($user['password'], PASSWORD_BCRYPT);
     
     $sql = "UPDATE users SET first_name = :first_name, last_name = :last_name, email = :email, phone = :phone, 
@@ -137,7 +148,6 @@ function editUser($conn,$path) {
     $stmt->bindParam(':id', $path[3]);
     $stmt->execute();
     $affectedRows = $stmt->rowCount();
-    error_log("Affected Rows: " . $affectedRows);
 
     if ($stmt->errorCode() != '00000') {
         $errorInfo = $stmt->errorInfo();
@@ -152,7 +162,6 @@ function editUser($conn,$path) {
     echo json_encode($response);
 }
 
-// Function to handle DELETE requests
 function deleteUser($conn, $path) {
     $sql = "DELETE FROM users WHERE id = ?";
     $stmt = $conn->prepare($sql);

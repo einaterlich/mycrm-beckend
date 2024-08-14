@@ -23,8 +23,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $userData=getUserByEmail($conn,$userEmail);
         if (isset($userData)){
             if (password_verify($password, $userData['password'])){
-                $token=setJWT($userData);
-                $response = ['status' => 'success', 'message' => 'Login successful','token'=>$token];
+                $tokens = setJWT($userData);
+                $response = [
+                    'status' => 'success',
+                    'message' => 'Login successful',
+                    'token' => $tokens['token'],
+                    'refreshToken' => $tokens['refreshToken']
+                ];
             }else{
                 $response = ['status' => 'error', 'message' => 'Wrong Password'];
             }
@@ -57,14 +62,28 @@ function setJWT($userData) {
             'exp'    => time() + 3600,
             'data'   => array(
                 'id'         => $userData['id'],
-                'first_name' => $userData['first_name']
+                'first_name' => $userData['first_name'],
+                'role'         => $userData['role'],
             )
         ),
         $key,
         'HS256'
     );
 
-    setcookie("token", $token, time() + 3600, "/", "", false, true);
-    return $token;
+    $payload = array(
+        'iat' => time(),              // Issued at time
+        'nbf' => time(),              // Not before time
+        'exp' => time() + 7 * 24 * 60 * 60, // Expiration time (7 days from now)
+        'data' => array(
+            'userId' => $userData['id']
+        ),
+    );
+    
+    // Generate the JWT
+    $refreshToken = JWT::encode($payload, $key, 'HS256');
+
+
+    setcookie("token", $token, time() + 3600, "/", "", true, true);
+    return [ "token"=>$token, "refreshToken"=>$refreshToken];
 }
 
